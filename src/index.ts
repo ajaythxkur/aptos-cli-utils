@@ -11,7 +11,7 @@ import { baseRoutes } from "./routes/base-routes";
 const app = express();
 app.use(express.json());
 app.use(cors({
-    origin: allowedUrls,
+    origin: "*",
     methods: ['GET', 'POST'],
     allowedHeaders: ['Content-Type', 'Authorization', 'x-chain'],
 }));
