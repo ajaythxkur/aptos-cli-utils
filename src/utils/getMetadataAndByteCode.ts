@@ -22,6 +22,7 @@ export async function getMetadataAndByteCode(
   symbol: string,
   chain: Chain
 ) {
+  console.log({chain})
   if (chain === "supra") {
     return supraPackageBuilder(module_address, symbol)
   }
@@ -121,15 +122,15 @@ export async function getMetadataAndByteCode(
   } catch (error: any) {
     throw new Error(error.message)
   } finally {
-    fs.rm(
-      dirPath,
-      { recursive: true, force: true },
-      (err) => {
-        if (err) {
-          return console.error("Error deleting directory:", err);
-        }
-      }
-    );
+    // fs.rm(
+    //   dirPath,
+    //   { recursive: true, force: true },
+    //   (err) => {
+    //     if (err) {
+    //       return console.error("Error deleting directory:", err);
+    //     }
+    //   }
+    // );
   }
   return { metadataBytes, byteCode }
 }
