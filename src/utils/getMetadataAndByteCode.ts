@@ -22,7 +22,6 @@ export async function getMetadataAndByteCode(
   symbol: string,
   chain: Chain
 ) {
-  console.log({chain})
   if (chain === "supra") {
     return supraPackageBuilder(module_address, symbol)
   }
@@ -74,13 +73,11 @@ export async function getMetadataAndByteCode(
       console.log(`Created directories: ${path.dirname(newFile)}`);
     }
     if (chain === "movement") {
-      console.log("Chain is movement")
-      const moveTomlFile =  path.join(dirPath, "move.toml");
+      const moveTomlFile =  path.join(dirPath, "Move.toml");
       if (fs.existsSync(newFile)) {
         fs.unlinkSync(newFile);
         console.log(`Deleted file: ${newFile}`);
       }
-      console.log("Writing move.toml")
       fs.writeFileSync(moveTomlFile, getMoveTomlForMovement(dirName), "utf-8");
     }
     // Attempt to write the file
