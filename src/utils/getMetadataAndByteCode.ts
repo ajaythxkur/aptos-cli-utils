@@ -5,12 +5,24 @@ import { nodeEnv } from "./env";
 import { Chain } from "../controllers/publish-package-controller";
 
 const commandOptions = { maxBuffer: 1024 * 1024 * 10 }
+
+function getMoveTomlForMovement(packageName: string) {
+  return `[package]
+    name = "${packageName}"
+    version = "1.0.0"
+    authors = []
+
+    [dependencies]
+    AptosFramework = { git = "https://github.com/movementlabsxyz/aptos-core.git", rev = "movement", subdir = "aptos-move/framework/aptos-framework" }
+  `
+}
+
 export async function getMetadataAndByteCode(
   module_address: string,
   symbol: string,
   chain: Chain
 ) {
-  if(chain === "supra"){
+  if (chain === "supra") {
     return supraPackageBuilder(module_address, symbol)
   }
   let aptos = "npx aptos";
@@ -59,7 +71,15 @@ export async function getMetadataAndByteCode(
     if (!fs.existsSync(path.dirname(newFile))) {
       fs.mkdirSync(path.dirname(newFile), { recursive: true });
       console.log(`Created directories: ${path.dirname(newFile)}`);
-    } 
+    }
+    if (chain === "movement") {
+      const moveTomlFile =  path.join(dirPath, "move.toml");
+      if (fs.existsSync(newFile)) {
+        fs.unlinkSync(newFile);
+        console.log(`Deleted file: ${newFile}`);
+      }
+      fs.writeFileSync(moveTomlFile, getMoveTomlForMovement(dirName), "utf-8");
+    }
     // Attempt to write the file
     fs.writeFileSync(newFile, code, "utf8",);
 
@@ -86,7 +106,7 @@ export async function getMetadataAndByteCode(
 
     if (result.error) {
       console.error('Error executing command:', result.error);
-    } 
+    }
     const metadataFilePath = path.join(dirPath, "sources/metadata.json");
     if (!fs.existsSync(metadataFilePath)) {
       throw new Error("metadata.json not found after execution");
@@ -130,10 +150,10 @@ function supraPackageBuilder(module_address: string, symbol: string) {
   let parentDir = path.join(__dirname, "../../../");
   if (nodeEnv === "development") {
     parentDir = path.join(__dirname, "../../../..");
-  } 
-  console.log({parentDir})
+  }
+  console.log({ parentDir })
   const dirPath = path.join(parentDir, "supra/configs/move_workspace", dirName);
-  console.log({dirPath})
+  console.log({ dirPath })
   try {
     fs.mkdirSync(dirPath, { recursive: true });
     const initCommand = supra.split(" ")[0];
@@ -167,7 +187,7 @@ function supraPackageBuilder(module_address: string, symbol: string) {
 
     if (fs.existsSync(newFile)) {
       console.log(`File successfully written to: ${newFile}`);
-    } 
+    }
     const commandArgs = [
       `${supra} move tool build-publish-payload`,
       `--json-output-file /supra/configs/move_workspace/${dirName}/sources/metadata.json`,
@@ -185,7 +205,7 @@ function supraPackageBuilder(module_address: string, symbol: string) {
 
     if (result.error) {
       console.error('Error executing command:', result.error);
-    } 
+    }
 
     const metadataFilePath = path.join(dirPath, "sources/metadata.json");
     console.log({ metadataFilePath })
