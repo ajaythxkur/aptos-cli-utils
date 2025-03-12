@@ -97,6 +97,7 @@ async function movementPublishPackage(
             metadataBytes,
             moduleBytecode
         });
+        console.log({transaction})
         const pendingTxn = await aptosClient.signAndSubmitTransaction({
             signer: account,
             transaction
