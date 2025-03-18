@@ -6,14 +6,35 @@ export default {
     async getPublishPackageTxnData(req: Request, res: Response) {
         try {
             const chain = req.headers["x-chain"] ?? "aptos";
-            const { module_address, symbol } = req.body;
-            if(!module_address || !symbol){
-                throw new Error("Module address and symbol not provided");
+            const { 
+                chainId,
+                module_address,
+                name, 
+                symbol, 
+                image, 
+                description, 
+                telegram, 
+                twitter, 
+                website,
+                max_aptos,
+                min_coins,
+             } = req.body;
+            if(!chainId || !module_address || !name || !symbol || !image || !description){
+                throw new Error("Provide all the params");
             }
             const data = await getMetadataAndByteCode(
-                module_address,
-                symbol,
-                chain as Chain
+               chain as Chain,
+               chainId,
+               module_address,
+               name, 
+               symbol, 
+               image, 
+               description, 
+               telegram, 
+               twitter, 
+               website,
+               max_aptos,
+               min_coins,
             )
             res.json({ data })
         } catch (error: any) {

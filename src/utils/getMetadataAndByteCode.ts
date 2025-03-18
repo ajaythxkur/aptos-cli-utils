@@ -6,24 +6,34 @@ import { Chain } from "../controllers/publish-package-controller";
 
 const commandOptions = { maxBuffer: 1024 * 1024 * 10 }
 
-function getMoveTomlForMovement(packageName: string) {
-  return `[package]
-    name = "${packageName}"
-    version = "1.0.0"
-    authors = []
-
-    [dependencies]
-    AptosFramework = { git = "https://github.com/movementlabsxyz/aptos-core.git", rev = "movement", subdir = "aptos-move/framework/aptos-framework" }
-  `
-}
-
 export async function getMetadataAndByteCode(
+  chain: Chain,
+  chainId: number,
   module_address: string,
+  name: string,
   symbol: string,
-  chain: Chain
+  image: string,
+  description: string,
+  telegram: string | undefined,
+  twitter: string | undefined,
+  website: string | undefined,
+  max_aptos: number | undefined,
+  min_coins: number | undefined,
 ) {
   if (chain === "supra") {
-    return supraPackageBuilder(module_address, symbol)
+    return supraPackageBuilder(
+      chainId,
+      module_address,
+      name,
+      symbol,
+      image,
+      description,
+      telegram,
+      twitter,
+      website,
+      max_aptos,
+      min_coins,
+    )
   }
   let aptos = "npx aptos";
   if (chain === "movement") {
@@ -31,7 +41,7 @@ export async function getMetadataAndByteCode(
   }
 
   const SYMBOL = symbol.toUpperCase();
-  const dirName = `coin-${module_address}-${symbol.toLowerCase()}-${chain}`;
+  const dirName = `${symbol}-${chain}-${Date.now()}`;
   let metadataBytes = "";
   let byteCode: string[] = [];
 
@@ -65,20 +75,39 @@ export async function getMetadataAndByteCode(
       throw new Error(`Failed to execute init command: ${initResult.error.message}`);
     }
 
-    const newFile = path.join(dirPath, "sources/newCoin.move");
-    const code = `module ${module_address}::${SYMBOL} { struct ${SYMBOL} has key {} }`;
+    const newFile = path.join(dirPath, "sources/coin.move");
+    const code = getCode(
+      name,
+      SYMBOL,
+      image,
+      description,
+      telegram,
+      twitter,
+      website,
+      max_aptos,
+      min_coins
+    );
+    console.log({chain, code})
 
     if (!fs.existsSync(path.dirname(newFile))) {
       fs.mkdirSync(path.dirname(newFile), { recursive: true });
       console.log(`Created directories: ${path.dirname(newFile)}`);
     }
     if (chain === "movement") {
-      const moveTomlFile =  path.join(dirPath, "Move.toml");
+      const moveTomlFile = path.join(dirPath, "Move.toml");
       if (fs.existsSync(newFile)) {
         fs.unlinkSync(newFile);
         console.log(`Deleted file: ${newFile}`);
       }
-      fs.writeFileSync(moveTomlFile, getMoveTomlForMovement(dirName), "utf-8");
+      fs.writeFileSync(moveTomlFile, getMoveTomlForMovement(module_address, chainId), "utf-8");
+    }
+    if (chain === "aptos") {
+      const moveTomlFile = path.join(dirPath, "Move.toml");
+      if (fs.existsSync(newFile)) {
+        fs.unlinkSync(newFile);
+        console.log(`Deleted file: ${newFile}`);
+      }
+      fs.writeFileSync(moveTomlFile, getMoveTomlForAptos(module_address, chainId), "utf-8");
     }
     // Attempt to write the file
     fs.writeFileSync(newFile, code, "utf8",);
@@ -119,15 +148,15 @@ export async function getMetadataAndByteCode(
   } catch (error: any) {
     throw new Error(error.message)
   } finally {
-    // fs.rm(
-    //   dirPath,
-    //   { recursive: true, force: true },
-    //   (err) => {
-    //     if (err) {
-    //       return console.error("Error deleting directory:", err);
-    //     }
-    //   }
-    // );
+    fs.rm(
+      dirPath,
+      { recursive: true, force: true },
+      (err) => {
+        if (err) {
+          return console.error("Error deleting directory:", err);
+        }
+      }
+    );
   }
   return { metadataBytes, byteCode }
 }
@@ -139,8 +168,20 @@ function getPackageBytesToPublish(modulePath: string) {
   return { metadataBytes, byteCode };
 }
 
-function supraPackageBuilder(module_address: string, symbol: string) {
-  const dirName = `coin-${module_address}-${symbol.toLowerCase()}-supra`;
+function supraPackageBuilder(
+  chainId: number,
+  module_address: string,
+  name: string,
+  symbol: string,
+  image: string,
+  description: string,
+  telegram: string | undefined,
+  twitter: string | undefined,
+  website: string | undefined,
+  max_aptos: number | undefined,
+  min_coins: number | undefined,
+) {
+  const dirName = `${symbol}-supra-${Date.now()}`;
   const supra = "docker exec -i supra_cli /supra/supra";
   const packageDir = "/supra/configs/move_workspace/" + dirName;
 
@@ -176,12 +217,30 @@ function supraPackageBuilder(module_address: string, symbol: string) {
       throw new Error(`Failed to execute init command: ${initResult.error.message}`);
     }
 
-    const newFile = path.join(dirPath, "sources/newCoin.move");
-    const code = `module ${module_address}::${SYMBOL} { struct ${SYMBOL} has key {} }`;
+    const newFile = path.join(dirPath, "sources/coin.move");
+    const code = getCode(
+      name,
+      SYMBOL,
+      image,
+      description,
+      telegram,
+      twitter,
+      website,
+      max_aptos,
+      min_coins
+    );
+    console.log({chain: "supra", code})
     if (!fs.existsSync(path.dirname(newFile))) {
       fs.mkdirSync(path.dirname(newFile), { recursive: true });
       console.log(`Created directories: ${path.dirname(newFile)}`);
     }
+
+    const moveTomlFile = path.join(dirPath, "Move.toml");
+    if (fs.existsSync(newFile)) {
+      fs.unlinkSync(newFile);
+      console.log(`Deleted file: ${newFile}`);
+    }
+    fs.writeFileSync(moveTomlFile, getMoveTomlForSupra(module_address, chainId), "utf-8");
     // Attempt to write the file
     fs.writeFileSync(newFile, code, "utf8",);
 
@@ -234,3 +293,121 @@ function supraPackageBuilder(module_address: string, symbol: string) {
   return { metadataBytes, byteCode };
 }
 
+function getCode(
+  name: string,
+  symbol: string,
+  image: string,
+  description: string,
+  telegram: string | undefined,
+  twitter: string | undefined,
+  website: string | undefined,
+  max_aptos: number | undefined,
+  min_coins: number | undefined
+) {
+  const formattedName = name
+    .toLowerCase()
+    .split(" ")
+    .map((word, index) => (index === 0 ? word : word.charAt(0).toUpperCase() + word.slice(1)))
+    .join("");
+  return `
+        module addrx::${formattedName} {
+            use std::string;
+            use std::option;
+
+            struct PUMP_${symbol} has key {} 
+
+            struct ${symbol} has key {}
+
+            fun init_module(module_signer: &signer) {
+                pump::pump::${min_coins ? `create_and_buy` : `create`}<PUMP_${symbol},${symbol}>(
+                    module_signer,
+                    string::utf8(b"${name}"),
+                    string::utf8(b"${symbol}"),
+                    string::utf8(b"${image}"),
+                    string::utf8(b"${description}"),
+                    ${telegram ? `option::some(string::utf8(b"${telegram}"))` : `option::none()`},
+                    ${twitter ? `option::some(string::utf8(b"${twitter}"))` : `option::none()`},
+                    ${website ? `option::some(string::utf8(b"${website}"))` : `option::none()`},
+                    ${max_aptos ? `${max_aptos},` : ``}
+                    ${min_coins ? `${min_coins},` : ``}
+                );
+            }
+        }
+    `
+}
+
+function getMoveTomlForMovement(module_addr: string, chainId: number) {
+  return `
+    [package]
+    name = "token-${Date.now()}"
+    version = "1.0.0"
+    authors = []
+
+    [addresses]
+    addrx="${module_addr}"
+
+    [dev-addresses]
+
+    [dependencies]
+    AptosFramework = { git = "https://github.com/movementlabsxyz/aptos-core.git", rev = "movement", subdir = "aptos-move/framework/aptos-framework" }
+
+    [dependencies.pump]
+    git = "https://github.com/Meowtos/integrate-pump.git"
+    rev = "main"
+    subdir = "${chainId === 126 ? `movement_mainnet_interface` : `movement_testnet_interface`}"
+
+    [dev-dependencies]
+  `
+}
+
+function getMoveTomlForAptos(module_addr: string, chainId: number) {
+  return `
+    [package]
+    name = "token-${Date.now()}"
+    version = "1.0.0"
+    authors = []
+
+    [addresses]
+    addrx="${module_addr}"
+
+    [dev-addresses]
+
+    [dependencies.AptosFramework]
+    git = "https://github.com/aptos-labs/aptos-framework.git"
+    rev = "mainnet"
+    subdir = "aptos-framework"
+
+    [dependencies.pump]
+    git = "https://github.com/Meowtos/integrate-pump.git"
+    rev = "main"
+    subdir = "${chainId === 1 ? `aptos_mainnet_interface` : `aptos_testnet_interface`}"
+
+    [dev-dependencies]
+  `
+}
+
+function getMoveTomlForSupra(module_addr: string, chainId: number) {
+  return `
+    [package]
+    name = "token-${Date.now()}"
+    version = "1.0.0"
+    authors = []
+
+    [addresses]
+    addrx="${module_addr}"
+
+    [dev-addresses]
+
+    [dependencies.SupraFramework]
+    git = "https://github.com/Entropy-Foundation/aptos-core.git"
+    rev = "dev"
+    subdir = "aptos-move/framework/supra-framework"
+
+    [dependencies.pump]
+    git = "https://github.com/Meowtos/integrate-pump.git"
+    rev = "main"
+    subdir = "${chainId === 8 ? `supra_mainnet_interface` : `supra_testnet_interface`}"
+
+    [dev-dependencies]
+  `
+}
