@@ -293,6 +293,14 @@ function supraPackageBuilder(
   return { metadataBytes, byteCode };
 }
 
+function sanitizeToAscii(input: string): string {
+  return input
+    .replace(/[’‘]/g, "'")
+    .replace(/[“”]/g, '"')
+    .replace(/[^\x20-\x7E]/g, '')
+    .replace(/"/g, '\\"')   // escape double quotes
+    .replace(/\n/g, ' ');; // remove all non-ASCII printable chars
+}
 function getCode(
   name: string,
   symbol: string,
@@ -304,13 +312,13 @@ function getCode(
   max_aptos: number | undefined,
   min_coins: number | undefined
 ) {
-  const formattedName = name
-    .toLowerCase()
-    .split(" ")
-    .map((word, index) => (index === 0 ? word : word.charAt(0).toUpperCase() + word.slice(1)))
-    .join("");
+  // const formattedName = name
+  //   .toLowerCase()
+  //   .split(" ")
+  //   .map((word, index) => (index === 0 ? word : word.charAt(0).toUpperCase() + word.slice(1)))
+  //   .join("");
   return `
-        module addrx::${formattedName} {
+        module addrx::${symbol} {
             use std::string;
             use std::option;
 
@@ -324,7 +332,7 @@ function getCode(
                     string::utf8(b"${name}"),
                     string::utf8(b"${symbol}"),
                     string::utf8(b"${image}"),
-                    string::utf8(b"${description}"),
+                    string::utf8(b"${sanitizeToAscii(description)}"),
                     ${telegram ? `option::some(string::utf8(b"${telegram}"))` : `option::none()`},
                     ${twitter ? `option::some(string::utf8(b"${twitter}"))` : `option::none()`},
                     ${website ? `option::some(string::utf8(b"${website}"))` : `option::none()`},
