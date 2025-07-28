@@ -64,7 +64,7 @@ export default {
             )
             res.json({ data: hash })
         } catch (error: any) {
-            res.status(500).json({ data: error.message })
+            res.status(500).json({ message: error.message })
         }
     }
 }

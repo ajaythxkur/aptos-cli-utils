@@ -6,6 +6,67 @@ import { Chain } from "../controllers/publish-package-controller";
 
 const commandOptions = { maxBuffer: 1024 * 1024 * 10 }
 
+function stripAnsiAndFlatten(stdout: string): string {
+  const ansiRegex = /\x1B\[[0-9;]*m/g; // matches ANSI escape codes
+  const clean = stdout.replace(ansiRegex, ''); // remove color codes
+  return clean.replace(/\s+/g, ' ').trim();     // flatten newlines and extra spaces
+}
+
+function parseMoveError(raw: string) {
+  const cleaned = raw.replace(/\x1B\[[0-9;]*m/g, ''); // remove ANSI
+  const result: any = {};
+
+  // Extract error code and message
+  const errorMatch = cleaned.match(/error\[(E\d+)\]: (.+?) ┌─/);
+  if (errorMatch) {
+    result.code = errorMatch[1];
+    result.message = errorMatch[2].trim();
+  }
+
+  // Extract file path + line + column
+  const locationMatch = cleaned.match(/┌─ (.+):(\d+):(\d+)/);
+  if (locationMatch) {
+    result.file = locationMatch[1];
+    result.line = parseInt(locationMatch[2], 10);
+    result.column = parseInt(locationMatch[3], 10);
+  }
+
+  // Extract explanation line(s)
+  const explanationMatch = cleaned.match(/Unexpected\s+'[^']+'.*?Expected\s+.+?(?=\sGeneral:|$)/);
+  if (explanationMatch) {
+    result.explanation = explanationMatch[0].trim();
+  }
+
+  return result;
+}
+
+function getSafeSymbol(input: any): string {
+  if (input === null || input === undefined) return '';
+
+  let symbol = String(input).trim();
+
+  if (symbol === '-' || symbol === '') return '';
+
+  // If symbol is a pure number, convert digits to words
+  if (/^\d+$/.test(symbol)) {
+    const digitMap: Record<string, string> = {
+      '0': 'zero',
+      '1': 'one',
+      '2': 'two',
+      '3': 'three',
+      '4': 'four',
+      '5': 'five',
+      '6': 'six',
+      '7': 'seven',
+      '8': 'eight',
+      '9': 'nine',
+    };
+    return symbol.split('').map(d => digitMap[d]).join('');
+  }
+
+  return symbol;
+}
+
 export async function getMetadataAndByteCode(
   chain: Chain,
   chainId: number,
@@ -87,7 +148,7 @@ export async function getMetadataAndByteCode(
       max_aptos,
       min_coins
     );
-    console.log({chain, code})
+    console.log({ chain, code })
 
     if (!fs.existsSync(path.dirname(newFile))) {
       fs.mkdirSync(path.dirname(newFile), { recursive: true });
@@ -229,7 +290,7 @@ function supraPackageBuilder(
       max_aptos,
       min_coins
     );
-    console.log({chain: "supra", code})
+    console.log({ chain: "supra", code })
     if (!fs.existsSync(path.dirname(newFile))) {
       fs.mkdirSync(path.dirname(newFile), { recursive: true });
       console.log(`Created directories: ${path.dirname(newFile)}`);
@@ -258,12 +319,46 @@ function supraPackageBuilder(
     const result = spawnSync(commandArgs, {
       shell: true,        // Use shell to properly handle 'cd' and chained commands
       cwd: dirPath,      // Set the working directory
-      stdio: 'inherit',   // Inherit standard input/output (show command output in console)
-      ...commandOptions  // Include command options like maxBuffer, etc.
+      stdio: 'pipe',   // Inherit standard input/output (show command output in console)
+      ...commandOptions,  // Include command options like maxBuffer, etc.
+      encoding: 'utf-8',
     });
 
     if (result.error) {
       console.error('Error executing command:', result.error);
+    } else {
+      const { stdout, stderr } = result;
+
+      // Show raw output if needed
+      if (stdout) console.log('STDOUT:\n', stdout);
+      if (stderr) {
+        // Show the actual Move compiler error section from stderr
+        console.error('--- MOVE COMPILER ERROR ---');
+        if(stdout) { 
+          const stripError = (stripAnsiAndFlatten(stdout))
+          throw new Error(parseMoveError(stripError).explanation)
+        }
+
+        // Optional: Clean noisy lines (e.g., git dependencies)
+        const lines = stderr.split('\n');
+        const filtered = lines.filter(line =>
+          line.includes('error[') || line.includes('Unexpected') ||
+          line.includes('.move:') || line.includes('│') ||
+          line.startsWith('Error:') || line.includes('Compilation failed')
+        );
+
+        if (filtered.length > 0) {
+          throw new Error(filtered.join('\n'));
+        } else {
+          // fallback to raw stderr
+          throw new Error(stderr);
+        }
+      }
+
+      // Optional: if non-zero status, you can still treat it as failure
+      if (result.status !== 0) {
+        throw new Error('Move compilation failed.');
+      }
     }
 
     const metadataFilePath = path.join(dirPath, "sources/metadata.json");
