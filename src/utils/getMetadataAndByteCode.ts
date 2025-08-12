@@ -224,6 +224,7 @@ export async function getMetadataAndByteCode(
 
 function getPackageBytesToPublish(modulePath: string) {
   const jsonData = JSON.parse(fs.readFileSync(modulePath, "utf8"));
+  console.log(jsonData)
   const metadataBytes = jsonData.args[0].value;
   const byteCode = jsonData.args[1].value;
   return { metadataBytes, byteCode };
@@ -331,29 +332,29 @@ function supraPackageBuilder(
 
       // Show raw output if needed
       if (stdout) console.log('STDOUT:\n', stdout);
-      if (stderr) {
-        // Show the actual Move compiler error section from stderr
-        console.error('--- MOVE COMPILER ERROR ---');
-        if(stdout) { 
-          const stripError = (stripAnsiAndFlatten(stdout))
-          throw new Error(parseMoveError(stripError).explanation)
-        }
+      // if (stderr) {
+        // console.log({stderr})
+        // // Show the actual Move compiler error section from stderr
+        // if(stdout) { 
+        //   const stripError = (stripAnsiAndFlatten(stdout))
+        //   throw new Error(parseMoveError(stripError).explanation)
+        // }
 
-        // Optional: Clean noisy lines (e.g., git dependencies)
-        const lines = stderr.split('\n');
-        const filtered = lines.filter(line =>
-          line.includes('error[') || line.includes('Unexpected') ||
-          line.includes('.move:') || line.includes('│') ||
-          line.startsWith('Error:') || line.includes('Compilation failed')
-        );
+        // // Optional: Clean noisy lines (e.g., git dependencies)
+        // const lines = stderr.split('\n');
+        // const filtered = lines.filter(line =>
+        //   line.includes('error[') || line.includes('Unexpected') ||
+        //   line.includes('.move:') || line.includes('│') ||
+        //   line.startsWith('Error:') || line.includes('Compilation failed')
+        // );
 
-        if (filtered.length > 0) {
-          throw new Error(filtered.join('\n'));
-        } else {
-          // fallback to raw stderr
-          throw new Error(stderr);
-        }
-      }
+        // if (filtered.length > 0) {
+        //   throw new Error(filtered.join('\n'));
+        // } else {
+        //   // fallback to raw stderr
+        //   throw new Error(stderr);
+        // }
+      // }
 
       // Optional: if non-zero status, you can still treat it as failure
       if (result.status !== 0) {
@@ -366,6 +367,7 @@ function supraPackageBuilder(
     if (!fs.existsSync(metadataFilePath)) {
       throw new Error("metadata.json not found after execution");
     }
+    console.log("reachiing here")
     const data = getPackageBytesToPublish(
       metadataFilePath
     )
