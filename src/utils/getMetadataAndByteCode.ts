@@ -430,9 +430,9 @@ function getCode(
                     string::utf8(b"${symbol}"),
                     string::utf8(b"${image}"),
                     string::utf8(b"${sanitizeToAscii(description)}"),
-                    ${telegram ? `option::some(string::utf8(b"${telegram}"))` : `option::none()`},
-                    ${twitter ? `option::some(string::utf8(b"${twitter}"))` : `option::none()`},
                     ${website ? `option::some(string::utf8(b"${website}"))` : `option::none()`},
+                    ${twitter ? `option::some(string::utf8(b"${twitter}"))` : `option::none()`},
+                    ${telegram ? `option::some(string::utf8(b"${telegram}"))` : `option::none()`},
                     ${max_aptos ? `${max_aptos},` : ``}
                     ${min_coins ? `${min_coins},` : ``}
                 );
